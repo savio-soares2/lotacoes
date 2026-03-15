@@ -7,7 +7,11 @@ import cors from "cors"
 
 const app = express()
 const rawPort = process.env.PORT
-const primaryPort = rawPort !== undefined && rawPort !== "" ? rawPort : 8000
+const primaryPort = (() => {
+  if (rawPort === undefined || rawPort === "") return 8000
+  const numeric = Number(rawPort)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : rawPort
+})()
 const host = process.env.HOST || "0.0.0.0"
 const fallbackPorts = String(process.env.FALLBACK_PORTS || "3000,8080,5000")
   .split(",")
@@ -267,25 +271,18 @@ app.delete("/api/requests", (req, res) => {
 })
 
 function resolveFrontendDist() {
-  const candidates = []
+  const configuredRaw = String(process.env.FRONTEND_DIST || "").trim()
+  if (!configuredRaw) return null
 
-  if (process.env.FRONTEND_DIST) {
-    const configured = path.isAbsolute(process.env.FRONTEND_DIST)
-      ? process.env.FRONTEND_DIST
-      : path.resolve(BACKEND_DIR, process.env.FRONTEND_DIST)
-    candidates.push(configured)
+  const configured = path.isAbsolute(configuredRaw)
+    ? configuredRaw
+    : path.resolve(BACKEND_DIR, configuredRaw)
+
+  if (fs.existsSync(path.join(configured, "index.html"))) {
+    return configured
   }
 
-  candidates.push(path.resolve(BACKEND_DIR, "public"))
-  candidates.push(path.resolve(BACKEND_DIR, "dist"))
-  candidates.push(path.resolve(BACKEND_DIR, "../frontend/dist"))
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "index.html"))) {
-      return candidate
-    }
-  }
-
+  console.warn(`FRONTEND_DIST definido, mas index.html nao encontrado em: ${configured}`)
   return null
 }
 

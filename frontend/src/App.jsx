@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import logoPrefSaude from './assets/logo-pref-saude.png'
 
-const PROD_API_FALLBACK = typeof window !== 'undefined' && window.location.hostname === 'saude.palmas.online'
-  ? 'https://api.palmas.online'
-  : ''
-const API_BASE = import.meta.env.VITE_API_BASE || PROD_API_FALLBACK
+const API_BASE = String(import.meta.env.VITE_API_BASE || '').trim()
 const TOKEN_KEY = 'lotacoes_token'
 const REQUEST_ROUTE = '/solicitar'
 
 function runBrowserDiagnostics() {
-  const base = API_BASE || window.location.origin
   const healthUrl = `${API_BASE}/api/health`
 
   const info = {

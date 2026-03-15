@@ -82,17 +82,17 @@ cd backend
 npm start
 ```
 
-### Deploy Hostinger (separado em 2 apps)
+### Deploy Railway (separado em 2 servicos)
 
 Arquivos de ambiente:
 
 - backend local: `backend/.env.example`
-- backend hostinger api: `backend/.env.hostinger.example`
-- frontend hostinger: `frontend/.env.hostinger.example`
+- backend railway api: `backend/.env.railway.example`
+- frontend railway: `frontend/.env.railway.example`
 
-#### App 1: API (`api.palmas.online`)
+#### Servico 1: API (backend)
 
-Recomendado no painel da API:
+Recomendado no painel do servico backend:
 
 - framework: Express
 - branch: `main`
@@ -105,7 +105,7 @@ Variaveis de ambiente (API):
 - `HOST=0.0.0.0`
 - `FALLBACK_PORTS=3000,8080,5000`
 - `JWT_SECRET=<segredo forte>`
-- `CORS_ORIGINS=https://saude.palmas.online,https://www.saude.palmas.online`
+- `CORS_ORIGINS=<url do frontend railway e/ou dominio final>`
 - `FRONTEND_DIST=`
 - `DATA_DIR=/tmp/lotacoes-data`
 - `REF_SERVERS_FILE=data/UPAS POR CARGO - 13-03-2026.xlsx`
@@ -117,10 +117,10 @@ Variaveis de ambiente (API):
 
 Nao fixe `PORT` em ambiente gerenciado.
 
-O servidor abre listeners em multiplas portas candidatas para compatibilidade com proxy gerenciado.
+O servidor abre listeners em multiplas portas candidatas para compatibilidade com ambientes gerenciados.
 O banco SQLite usa `DATA_DIR` quando definido; em host gerenciado, prefira `/tmp/lotacoes-data`.
 
-#### App 2: Frontend (`saude.palmas.online`)
+#### Servico 2: Frontend (Vite)
 
 Recomendado no painel do frontend:
 
@@ -131,9 +131,7 @@ Recomendado no painel do frontend:
 
 Variavel de ambiente (frontend):
 
-- `VITE_API_BASE=https://api.palmas.online`
-
-Observacao: o frontend tambem possui fallback automatico para `https://api.palmas.online` quando rodando em `saude.palmas.online`.
+- `VITE_API_BASE=<url publica do backend railway>`
 
 ### Diagnostico rapido de 503 (sem logs)
 
