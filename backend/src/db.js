@@ -1,4 +1,5 @@
 import fs from "fs"
+import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"
 import Database from "better-sqlite3"
@@ -6,15 +7,44 @@ import bcrypt from "bcryptjs"
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
 const BACKEND_DIR = path.resolve(SRC_DIR, "..")
-const dbDir = path.resolve(BACKEND_DIR, "data")
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true })
+
+function ensureWritableDirectory(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true })
+  const probe = path.join(dirPath, ".write-test")
+  fs.writeFileSync(probe, "ok")
+  fs.unlinkSync(probe)
 }
 
+function resolveDatabaseDirectory() {
+  const candidates = [
+    process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : null,
+    path.resolve(BACKEND_DIR, "data"),
+    path.resolve(os.tmpdir(), "lotacoes-data"),
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    try {
+      ensureWritableDirectory(candidate)
+      return candidate
+    } catch {
+      // try next candidate
+    }
+  }
+
+  throw new Error("Nao foi possivel encontrar um diretorio gravavel para o banco SQLite")
+}
+
+const dbDir = resolveDatabaseDirectory()
 const dbPath = path.join(dbDir, "app.db")
 export const db = new Database(dbPath)
 
-db.pragma("journal_mode = WAL")
+try {
+  db.pragma("journal_mode = WAL")
+} catch {
+  db.pragma("journal_mode = DELETE")
+}
+
+console.log(`SQLite em uso: ${dbPath}`)
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (

@@ -105,6 +105,7 @@ Variaveis de ambiente (hostinger):
 - `JWT_SECRET=<segredo forte>`
 - `CORS_ORIGINS=https://saude.palmas.online`
 - `FRONTEND_DIST=public`
+- `DATA_DIR=/tmp/lotacoes-data`
 - `REF_SERVERS_FILE=data/UPAS POR CARGO - 13-03-2026.xlsx`
 - `REF_VAGAS_FILE=data/Quadro de Vagas Edital.xlsx`
 - `REF_VAGAS_SHEET=Página1`
@@ -115,6 +116,7 @@ Variaveis de ambiente (hostinger):
 Nao fixe `PORT` em ambiente gerenciado.
 
 O servidor abre listeners em multiplas portas candidatas para compatibilidade com proxy gerenciado.
+O banco SQLite usa `DATA_DIR` quando definido; em host gerenciado, prefira `/tmp/lotacoes-data`.
 
 ## API
 
