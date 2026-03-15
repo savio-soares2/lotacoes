@@ -1,6 +1,7 @@
 import "dotenv/config"
 import fs from "fs"
 import path from "path"
+import { fileURLToPath } from "url"
 import express from "express"
 import cors from "cors"
 
@@ -23,6 +24,8 @@ import { toCsv } from "./csv.js"
 
 const app = express()
 const port = process.env.PORT || 8000
+const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_DIR = path.resolve(SRC_DIR, "..")
 const corsOrigins = String(process.env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173")
   .split(",")
   .map((item) => item.trim())
@@ -184,7 +187,10 @@ app.delete("/api/requests", authMiddleware(["admin"]), (_req, res) => {
   return res.json({ message: "Entradas limpas", total_removido: result.changes })
 })
 
-const frontendDist = path.resolve(process.cwd(), process.env.FRONTEND_DIST || "../frontend/dist")
+const frontendDistEnv = process.env.FRONTEND_DIST || "../frontend/dist"
+const frontendDist = path.isAbsolute(frontendDistEnv)
+  ? frontendDistEnv
+  : path.resolve(BACKEND_DIR, frontendDistEnv)
 const hasFrontendBuild = fs.existsSync(frontendDist)
 
 if (hasFrontendBuild) {

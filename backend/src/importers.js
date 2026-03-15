@@ -1,10 +1,13 @@
 import path from "path"
+import { fileURLToPath } from "url"
 import ExcelJS from "exceljs"
 
 import { db, normalizeCpf, normalizeMatricula, normalizeText } from "./db.js"
 import { allocate } from "./allocation.js"
 
-const ROOT_DIR = path.resolve(process.cwd(), "..")
+const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_DIR = path.resolve(SRC_DIR, "..")
+const ROOT_DIR = path.resolve(BACKEND_DIR, "..")
 const DEFAULT_SERVERS_FILE = path.join(
   ROOT_DIR,
   process.env.REF_SERVERS_FILE || "UPAS POR CARGO - 13-03-2026.xlsx"

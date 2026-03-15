@@ -1,9 +1,12 @@
 import fs from "fs"
 import path from "path"
+import { fileURLToPath } from "url"
 import Database from "better-sqlite3"
 import bcrypt from "bcryptjs"
 
-const dbDir = path.resolve(process.cwd(), "data")
+const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_DIR = path.resolve(SRC_DIR, "..")
+const dbDir = path.resolve(BACKEND_DIR, "data")
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true })
 }
