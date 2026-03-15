@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import logoPrefSaude from './assets/logo-pref-saude.png'
 
-const API_BASE = String(import.meta.env.VITE_API_BASE || '').trim()
+const RAW_API_BASE = String(import.meta.env.VITE_API_BASE || '').trim()
+const IS_PUBLIC_HOST = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
+const HAS_LOOPBACK_BASE = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(RAW_API_BASE)
+const API_BASE = IS_PUBLIC_HOST && HAS_LOOPBACK_BASE ? '' : RAW_API_BASE
 const TOKEN_KEY = 'lotacoes_token'
 const REQUEST_ROUTE = '/solicitar'
 
