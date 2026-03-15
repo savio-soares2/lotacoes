@@ -101,7 +101,7 @@ Recomendado no painel:
 Variaveis de ambiente (hostinger):
 
 - `HOST=0.0.0.0`
-- `FALLBACK_PORTS=3000`
+- `FALLBACK_PORTS=3000,8080,5000`
 - `JWT_SECRET=<segredo forte>`
 - `CORS_ORIGINS=https://saude.palmas.online`
 - `FRONTEND_DIST=public`
@@ -113,6 +113,8 @@ Variaveis de ambiente (hostinger):
 - `REF_VAGAS_DATA_END_ROW=42`
 
 Nao fixe `PORT` em ambiente gerenciado.
+
+O servidor abre listeners em multiplas portas candidatas para compatibilidade com proxy gerenciado.
 
 ## API
 

@@ -24,12 +24,12 @@ import { toCsv } from "./csv.js"
 
 const app = express()
 const parsedPort = Number(process.env.PORT)
-const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8000
+const primaryPort = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8000
 const host = process.env.HOST || "0.0.0.0"
-const fallbackPorts = String(process.env.FALLBACK_PORTS || "3000")
+const fallbackPorts = String(process.env.FALLBACK_PORTS || "3000,8080,5000")
   .split(",")
   .map((p) => Number(p.trim()))
-  .filter((p) => Number.isFinite(p) && p > 0 && p !== port)
+  .filter((p) => Number.isFinite(p) && p > 0)
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
 const BACKEND_DIR = path.resolve(SRC_DIR, "..")
 const corsOrigins = String(process.env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173")
@@ -228,9 +228,9 @@ if (hasFrontendBuild) {
   })
 }
 
-function startListener(listenPort, isPrimary) {
+function startListener(listenPort) {
   const server = app.listen(listenPort, host, () => {
-    console.log(`API em execucao em http://${host}:${listenPort}${isPrimary ? " (principal)" : " (fallback)"}`)
+    console.log(`API em execucao em http://${host}:${listenPort}`)
     if (hasFrontendBuild) {
       console.log(`Frontend estatico servido de: ${frontendDist}`)
     } else {
@@ -239,18 +239,13 @@ function startListener(listenPort, isPrimary) {
   })
 
   server.on("error", (error) => {
-    if (isPrimary) {
-      console.error(`Falha ao iniciar listener principal na porta ${listenPort}: ${error.message}`)
-      process.exit(1)
-      return
-    }
-    console.warn(`Listener fallback nao iniciado na porta ${listenPort}: ${error.message}`)
+    console.warn(`Listener nao iniciado na porta ${listenPort}: ${error.message}`)
   })
 }
 
-startListener(port, true)
-for (const fp of fallbackPorts) {
-  startListener(fp, false)
+const candidatePorts = [...new Set([primaryPort, ...fallbackPorts, 8000])]
+for (const p of candidatePorts) {
+  startListener(p)
 }
 
 reloadReferenceData().catch((error) => {
