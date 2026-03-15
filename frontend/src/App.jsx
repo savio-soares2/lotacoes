@@ -6,6 +6,47 @@ const API_BASE = import.meta.env.VITE_API_BASE || ''
 const TOKEN_KEY = 'lotacoes_token'
 const REQUEST_ROUTE = '/solicitar'
 
+function runBrowserDiagnostics() {
+  const base = API_BASE || window.location.origin
+  const healthUrl = `${API_BASE}/api/health`
+
+  const info = {
+    origin: window.location.origin,
+    pathname: window.location.pathname,
+    apiBase: API_BASE || '(same-origin)',
+    healthUrl,
+    timestamp: new Date().toISOString(),
+  }
+
+  console.groupCollapsed('[Lotacoes] Diagnostico de inicializacao')
+  console.log('Contexto:', info)
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+
+  fetch(healthUrl, {
+    method: 'GET',
+    cache: 'no-store',
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      const text = await res.text()
+      console.log('Health status:', res.status)
+      console.log('Health body:', text)
+      if (!res.ok) {
+        console.error('API indisponivel. Verifique deploy, porta e roteamento do backend.')
+      }
+    })
+    .catch((err) => {
+      console.error('Falha ao consultar /api/health:', err)
+      console.info('Possiveis causas: backend fora do ar, proxy sem rota para /api, ou erro 503 da plataforma.')
+    })
+    .finally(() => {
+      clearTimeout(timeout)
+      console.groupEnd()
+    })
+}
+
 function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
@@ -97,6 +138,10 @@ export default function App() {
     const onPopState = () => setRoute(window.location.pathname || '/')
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  useEffect(() => {
+    runBrowserDiagnostics()
   }, [])
 
   useEffect(() => {
