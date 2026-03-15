@@ -59,7 +59,7 @@ copy .env.example .env
 
 Variaveis principais:
 
-- Backend: `PORT`, `JWT_SECRET`, `CORS_ORIGINS`, `REF_SERVERS_FILE`, `REF_VAGAS_FILE`, `REF_VAGAS_SHEET`, `REF_VAGAS_HEADER_ROW`, `REF_VAGAS_DATA_START_ROW`, `REF_VAGAS_DATA_END_ROW`
+- Backend: `PORT`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_DIST`, `REF_SERVERS_FILE`, `REF_VAGAS_FILE`, `REF_VAGAS_SHEET`, `REF_VAGAS_HEADER_ROW`, `REF_VAGAS_DATA_START_ROW`, `REF_VAGAS_DATA_END_ROW`
 - Frontend: `VITE_API_BASE`
 
 ### 1) Backend
@@ -79,6 +79,33 @@ npm run dev
 ```
 
 Acesse: http://localhost:5173
+
+## Deploy unificado (uma aplicacao)
+
+Para deploy simplificado, o backend pode servir o frontend buildado no mesmo processo.
+
+1. Gerar build do frontend:
+
+```powershell
+cd frontend
+npm install
+npm run build
+```
+
+2. Subir apenas o backend:
+
+```powershell
+cd backend
+npm install
+npm start
+```
+
+3. O backend servira:
+
+- API em `/api/*`
+- Frontend (SPA) nas demais rotas
+
+Observacao: para deploy unificado, deixe `VITE_API_BASE` vazio no frontend (ou nao defina), assim o app usa a mesma origem (`/api`).
 
 ## API
 

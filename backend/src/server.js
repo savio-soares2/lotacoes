@@ -1,4 +1,6 @@
 import "dotenv/config"
+import fs from "fs"
+import path from "path"
 import express from "express"
 import cors from "cors"
 
@@ -182,8 +184,23 @@ app.delete("/api/requests", authMiddleware(["admin"]), (_req, res) => {
   return res.json({ message: "Entradas limpas", total_removido: result.changes })
 })
 
+const frontendDist = path.resolve(process.cwd(), process.env.FRONTEND_DIST || "../frontend/dist")
+const hasFrontendBuild = fs.existsSync(frontendDist)
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendDist))
+
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next()
+    return res.sendFile(path.join(frontendDist, "index.html"))
+  })
+}
+
 app.listen(port, () => {
   console.log(`API em execucao na porta ${port}`)
+  if (hasFrontendBuild) {
+    console.log(`Frontend estatico servido de: ${frontendDist}`)
+  }
 })
 
 reloadReferenceData().catch((error) => {
