@@ -60,7 +60,12 @@ function copyDirRecursive(sourceDir, targetDir) {
 }
 
 if (!fs.existsSync(FRONTEND_DIR)) {
-  console.error("frontend directory not found")
+  if (fs.existsSync(path.join(BACKEND_PUBLIC, "index.html"))) {
+    console.warn("frontend directory not found; using pre-bundled backend/public")
+    process.exit(0)
+  }
+
+  console.error("frontend directory not found and backend/public is missing")
   process.exit(1)
 }
 
