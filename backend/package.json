@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "build": "node -e \"console.log('build ok: backend/public already bundled')\"",
     "start": "node src/server.js",
     "test": "vitest run",
     "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build"
