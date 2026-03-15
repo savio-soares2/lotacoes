@@ -115,6 +115,11 @@ Se a plataforma nao permitir definir build command (apenas gerenciador de pacote
 
 Ou seja, no deploy com diretorio raiz em `backend`, o frontend sera buildado automaticamente durante o `npm install`.
 
+Fallback adicional para provedores com restricoes:
+
+- o backend tambem procura frontend estatico em `backend/public`
+- se `../frontend` nao existir no ambiente de deploy, basta manter os arquivos buildados em `backend/public`
+
 ## API
 
 - `POST /api/auth/login`

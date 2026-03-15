@@ -187,11 +187,31 @@ app.delete("/api/requests", authMiddleware(["admin"]), (_req, res) => {
   return res.json({ message: "Entradas limpas", total_removido: result.changes })
 })
 
-const frontendDistEnv = process.env.FRONTEND_DIST || "../frontend/dist"
-const frontendDist = path.isAbsolute(frontendDistEnv)
-  ? frontendDistEnv
-  : path.resolve(BACKEND_DIR, frontendDistEnv)
-const hasFrontendBuild = fs.existsSync(frontendDist)
+function resolveFrontendDist() {
+  const candidates = []
+
+  if (process.env.FRONTEND_DIST) {
+    const configured = path.isAbsolute(process.env.FRONTEND_DIST)
+      ? process.env.FRONTEND_DIST
+      : path.resolve(BACKEND_DIR, process.env.FRONTEND_DIST)
+    candidates.push(configured)
+  }
+
+  candidates.push(path.resolve(BACKEND_DIR, "public"))
+  candidates.push(path.resolve(BACKEND_DIR, "dist"))
+  candidates.push(path.resolve(BACKEND_DIR, "../frontend/dist"))
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "index.html"))) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+const frontendDist = resolveFrontendDist()
+const hasFrontendBuild = Boolean(frontendDist)
 
 if (hasFrontendBuild) {
   app.use(express.static(frontendDist))
