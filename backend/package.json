@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build",
+    "postinstall": "npm run build:frontend"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

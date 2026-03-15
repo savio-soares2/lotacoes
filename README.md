@@ -107,6 +107,13 @@ npm start
 
 Observacao: para deploy unificado, deixe `VITE_API_BASE` vazio no frontend (ou nao defina), assim o app usa a mesma origem (`/api`).
 
+Se a plataforma nao permitir definir build command (apenas gerenciador de pacotes), o projeto ja esta preparado:
+
+- `backend/package.json` executa `postinstall`
+- o `postinstall` roda `npm --prefix ../frontend ci && npm --prefix ../frontend run build`
+
+Ou seja, no deploy com diretorio raiz em `backend`, o frontend sera buildado automaticamente durante o `npm install`.
+
 ## API
 
 - `POST /api/auth/login`
