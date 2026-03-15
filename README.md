@@ -118,6 +118,15 @@ Nao fixe `PORT` em ambiente gerenciado.
 O servidor abre listeners em multiplas portas candidatas para compatibilidade com proxy gerenciado.
 O banco SQLite usa `DATA_DIR` quando definido; em host gerenciado, prefira `/tmp/lotacoes-data`.
 
+### Diagnostico rapido de 503 (sem logs)
+
+Se o provedor nao mostrar logs de runtime, use o entrypoint `src/probe.js` temporariamente.
+
+- `/` deve responder `probe-ok`
+- `/api/health` deve responder JSON com `mode: "probe"`
+
+Se com `probe.js` continuar 503, o problema e configuracao da plataforma/domino e nao da aplicacao.
+
 ## API
 
 - `POST /api/auth/login`
