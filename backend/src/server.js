@@ -6,8 +6,8 @@ import express from "express"
 import cors from "cors"
 
 const app = express()
-const parsedPort = Number(process.env.PORT)
-const primaryPort = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8000
+const rawPort = process.env.PORT
+const primaryPort = rawPort !== undefined && rawPort !== "" ? rawPort : 8000
 const host = process.env.HOST || "0.0.0.0"
 const fallbackPorts = String(process.env.FALLBACK_PORTS || "3000,8080,5000")
   .split(",")
@@ -301,24 +301,40 @@ if (hasFrontendBuild) {
   })
 }
 
-function startListener(listenPort) {
-  const server = app.listen(listenPort, host, () => {
-    console.log(`API em execucao em http://${host}:${listenPort}`)
+function startListener(ports) {
+  if (ports.length === 0) {
+    console.error("Nenhuma porta disponivel para iniciar o servidor.")
+    process.exit(1)
+  }
+
+  const listenPort = ports[0]
+  const isSocket = typeof listenPort === "string" && isNaN(Number(listenPort))
+  
+  const callback = () => {
+    console.log(`API em execucao em ${isSocket ? 'socket ' : 'http://' + host + ':'}${listenPort}`)
     if (hasFrontendBuild) {
       console.log(`Frontend estatico servido de: ${frontendDist}`)
     } else {
       console.log("Frontend estatico nao encontrado. Disponivel apenas /api/*")
     }
-  })
+  }
+
+  const server = isSocket 
+    ? app.listen(listenPort, callback)
+    : app.listen(listenPort, host, callback)
 
   server.on("error", (error) => {
     console.warn(`Listener nao iniciado na porta ${listenPort}: ${error.message}`)
+    if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
+      console.log(`Tentando proxima porta...`)
+      startListener(ports.slice(1))
+    }
   })
 }
 
-const candidatePorts = [...new Set([primaryPort, ...fallbackPorts, 8000])]
-for (const p of candidatePorts) {
-  startListener(p)
-}
+const candidatePorts = [primaryPort, ...fallbackPorts, 8000].filter(Boolean)
+const uniquePorts = [...new Set(candidatePorts)]
+
+startListener(uniquePorts)
 
 initServices()
