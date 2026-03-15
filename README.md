@@ -41,84 +41,78 @@ A carga e feita automaticamente no start do backend e pode ser recarregada pelo 
 
 ## Como executar
 
-### 0) Configurar ambiente (.env)
+### Ambiente local (modo separado)
 
-Backend:
+1) Backend
 
 ```powershell
 cd backend
 copy .env.example .env
-```
-
-Frontend:
-
-```powershell
-cd frontend
-copy .env.example .env
-```
-
-Variaveis principais:
-
-- Backend: `PORT`, `FALLBACK_PORTS`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_DIST`, `REF_SERVERS_FILE`, `REF_VAGAS_FILE`, `REF_VAGAS_SHEET`, `REF_VAGAS_HEADER_ROW`, `REF_VAGAS_DATA_START_ROW`, `REF_VAGAS_DATA_END_ROW`
-- Frontend: `VITE_API_BASE`
-
-### 1) Backend
-
-```powershell
-cd backend
 npm install
 npm run dev
 ```
 
-### 2) Frontend
+2) Frontend
 
 ```powershell
 cd frontend
+copy .env.example .env
 npm install
 npm run dev
 ```
 
 Acesse: http://localhost:5173
 
-## Deploy unificado (uma aplicacao)
+### Deploy unificado (uma aplicacao)
 
-Para deploy simplificado, o backend pode servir o frontend buildado no mesmo processo.
+O backend serve API e frontend estatico no mesmo processo.
 
-1. Gerar build do frontend:
-
-```powershell
-cd frontend
-npm install
-npm run build
-```
-
-2. Subir apenas o backend:
+1) Gerar frontend estatico dentro do backend
 
 ```powershell
 cd backend
 npm install
+npm run sync:public
+```
+
+2) Subir backend
+
+```powershell
+cd backend
 npm start
 ```
 
-3. O backend servira:
+### Deploy Hostinger (do zero)
 
-- API em `/api/*`
-- Frontend (SPA) nas demais rotas
+Arquivos de ambiente:
 
-Observacao: para deploy unificado, deixe `VITE_API_BASE` vazio no frontend (ou nao defina), assim o app usa a mesma origem (`/api`).
+- backend local: `backend/.env.example`
+- backend hostinger: `backend/.env.hostinger.example`
+- frontend: `frontend/.env.example`
 
-Se a plataforma nao permitir definir build command (apenas gerenciador de pacotes), use o frontend estatico versionado em `backend/public`.
+Recomendado no painel:
 
-- o backend prioriza `backend/public` para servir o site
-- no deploy com diretorio raiz em `backend`, nao e necessario buildar o frontend no servidor
-- isso evita falhas de compatibilidade quando o provedor usa Node 18
+- framework: Express
+- branch: `main`
+- diretorio raiz: `backend`
+- arquivo de entrada: `src/server.js`
+- node: 18.x
 
-Fallback adicional para provedores com restricoes:
+Variaveis de ambiente (hostinger):
 
-- o backend tambem procura frontend estatico em `backend/public`
-- se `../frontend` nao existir no ambiente de deploy, basta manter os arquivos buildados em `backend/public`
+- `HOST=0.0.0.0`
+- `FALLBACK_PORTS=3000`
+- `JWT_SECRET=<segredo forte>`
+- `CORS_ORIGINS=https://saude.palmas.online`
+- `FRONTEND_DIST=public`
+- `REF_SERVERS_FILE=data/UPAS POR CARGO - 13-03-2026.xlsx`
+- `REF_VAGAS_FILE=data/Quadro de Vagas Edital.xlsx`
+- `REF_VAGAS_SHEET=Página1`
+- `REF_VAGAS_HEADER_ROW=1`
+- `REF_VAGAS_DATA_START_ROW=2`
+- `REF_VAGAS_DATA_END_ROW=42`
 
-Em provedores com proxy gerenciado, configure `FALLBACK_PORTS=3000` para abrir um listener adicional e aumentar compatibilidade de roteamento.
+Nao fixe `PORT` em ambiente gerenciado.
 
 ## API
 

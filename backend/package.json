@@ -8,7 +8,8 @@
     "build": "node -e \"console.log('build ok: backend/public already bundled')\"",
     "start": "node src/server.js",
     "test": "vitest run",
-    "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build"
+    "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build",
+    "sync:public": "node ./scripts/sync-public-from-frontend.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
