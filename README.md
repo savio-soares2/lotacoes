@@ -34,8 +34,8 @@ Usuarios iniciais:
 
 ## Tabelas de referencia locais
 
-- `UPAS POR CARGO - 13-03-2026.xlsx` (aba `NOMINAL` para cadastro de servidores)
-- `Quadro de Vagas Edital.xlsx` (abas com distribuicao de vagas por unidade/cargo)
+- `backend/data/UPAS POR CARGO - 13-03-2026.xlsx` (aba `NOMINAL` para cadastro de servidores)
+- `backend/data/Quadro de Vagas Edital.xlsx` (abas com distribuicao de vagas por unidade/cargo)
 
 A carga e feita automaticamente no start do backend e pode ser recarregada pelo admin.
 

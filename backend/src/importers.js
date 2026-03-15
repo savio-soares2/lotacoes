@@ -1,3 +1,4 @@
+import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 import ExcelJS from "exceljs"
@@ -8,11 +9,33 @@ import { allocate } from "./allocation.js"
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
 const BACKEND_DIR = path.resolve(SRC_DIR, "..")
 const ROOT_DIR = path.resolve(BACKEND_DIR, "..")
-const DEFAULT_SERVERS_FILE = path.join(
-  ROOT_DIR,
-  process.env.REF_SERVERS_FILE || "UPAS POR CARGO - 13-03-2026.xlsx"
+
+function resolveReferenceFile(configValue, defaultRelativePath) {
+  const raw = String(configValue || defaultRelativePath).trim()
+  const candidates = path.isAbsolute(raw)
+    ? [raw]
+    : [
+        path.resolve(BACKEND_DIR, raw),
+        path.resolve(BACKEND_DIR, "data", raw),
+        path.resolve(ROOT_DIR, raw),
+        path.resolve(ROOT_DIR, "data", raw),
+      ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  return candidates[0]
+}
+
+const DEFAULT_SERVERS_FILE = resolveReferenceFile(
+  process.env.REF_SERVERS_FILE,
+  "data/UPAS POR CARGO - 13-03-2026.xlsx"
 )
-const DEFAULT_VAGAS_FILE = path.join(ROOT_DIR, process.env.REF_VAGAS_FILE || "Quadro de Vagas Edital.xlsx")
+const DEFAULT_VAGAS_FILE = resolveReferenceFile(
+  process.env.REF_VAGAS_FILE,
+  "data/Quadro de Vagas Edital.xlsx"
+)
 const DEFAULT_VAGAS_SHEET = process.env.REF_VAGAS_SHEET || "Página1"
 const VAGAS_HEADER_ROW = Number(process.env.REF_VAGAS_HEADER_ROW || 1)
 const VAGAS_DATA_START_ROW = Number(process.env.REF_VAGAS_DATA_START_ROW || 2)
