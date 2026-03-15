@@ -5,23 +5,6 @@ import { fileURLToPath } from "url"
 import express from "express"
 import cors from "cors"
 
-import { authMiddleware, loginUser } from "./auth.js"
-import {
-  clearSolicitacoes,
-  createSolicitacao,
-  getFilterOptions,
-  getSolicitacaoById,
-  getMetaCounts,
-  listQuadroVagasPublic,
-  listSolicitacoes,
-  lookupServidor,
-  recomputeAllocations,
-  reloadReferenceData,
-  unitsByCargo,
-} from "./importers.js"
-import { normalizeCpf, normalizeMatricula } from "./db.js"
-import { toCsv } from "./csv.js"
-
 const app = express()
 const parsedPort = Number(process.env.PORT)
 const primaryPort = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8000
@@ -37,6 +20,73 @@ const corsOrigins = String(process.env.CORS_ORIGINS || "http://localhost:5173,ht
   .map((item) => item.trim())
   .filter(Boolean)
 
+const services = {
+  ready: false,
+  startupError: null,
+  authMiddleware: null,
+  loginUser: null,
+  clearSolicitacoes: null,
+  createSolicitacao: null,
+  getFilterOptions: null,
+  getSolicitacaoById: null,
+  getMetaCounts: null,
+  listQuadroVagasPublic: null,
+  listSolicitacoes: null,
+  lookupServidor: null,
+  recomputeAllocations: null,
+  reloadReferenceData: null,
+  unitsByCargo: null,
+  normalizeCpf: null,
+  normalizeMatricula: null,
+  toCsv: null,
+}
+
+function serviceUnavailable(res) {
+  return res.status(503).json({
+    detail: "Backend em inicializacao ou com erro de dependencias",
+    startupError: services.startupError ? String(services.startupError.message || services.startupError) : null,
+  })
+}
+
+async function initServices() {
+  try {
+    const auth = await import("./auth.js")
+    const importers = await import("./importers.js")
+    const db = await import("./db.js")
+    const csv = await import("./csv.js")
+
+    services.authMiddleware = auth.authMiddleware
+    services.loginUser = auth.loginUser
+
+    services.clearSolicitacoes = importers.clearSolicitacoes
+    services.createSolicitacao = importers.createSolicitacao
+    services.getFilterOptions = importers.getFilterOptions
+    services.getSolicitacaoById = importers.getSolicitacaoById
+    services.getMetaCounts = importers.getMetaCounts
+    services.listQuadroVagasPublic = importers.listQuadroVagasPublic
+    services.listSolicitacoes = importers.listSolicitacoes
+    services.lookupServidor = importers.lookupServidor
+    services.recomputeAllocations = importers.recomputeAllocations
+    services.reloadReferenceData = importers.reloadReferenceData
+    services.unitsByCargo = importers.unitsByCargo
+
+    services.normalizeCpf = db.normalizeCpf
+    services.normalizeMatricula = db.normalizeMatricula
+    services.toCsv = csv.toCsv
+
+    await services.reloadReferenceData()
+    services.recomputeAllocations()
+
+    services.ready = true
+    services.startupError = null
+    console.log("Servicos internos inicializados com sucesso")
+  } catch (error) {
+    services.ready = false
+    services.startupError = error
+    console.error(`Falha na inicializacao de servicos: ${error.message}`)
+  }
+}
+
 app.use(
   cors({
     origin: corsOrigins,
@@ -46,58 +96,71 @@ app.use(
 app.use(express.json({ limit: "10mb" }))
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok" })
+  res.status(services.ready ? 200 : 503).json({
+    status: services.ready ? "ok" : "degraded",
+    startupError: services.startupError ? String(services.startupError.message || services.startupError) : null,
+  })
 })
 
 app.get("/api/public/quadro-vagas", (_req, res) => {
-  const rows = listQuadroVagasPublic()
+  if (!services.ready) return serviceUnavailable(res)
+  const rows = services.listQuadroVagasPublic()
   return res.json({ rows })
 })
 
 app.post("/api/auth/login", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
   const { username, password } = req.body || {}
-  const result = loginUser(username, password)
+  const result = services.loginUser(username, password)
   if (!result) {
     return res.status(401).json({ detail: "Usuario ou senha invalidos" })
   }
   return res.json(result)
 })
 
-app.get("/api/auth/me", authMiddleware(["admin", "gestao"]), (req, res) => {
-  return res.json({ user: req.user })
+app.get("/api/auth/me", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin", "gestao"])(req, res, () => res.json({ user: req.user }))
 })
 
-app.get("/api/meta", authMiddleware(["admin", "gestao"]), (_req, res) => {
-  return res.json({
-    ...getMetaCounts(),
-    filtros: getFilterOptions(),
+app.get("/api/meta", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin", "gestao"])(req, res, () =>
+    res.json({
+      ...services.getMetaCounts(),
+      filtros: services.getFilterOptions(),
+    })
+  )
+})
+
+app.post("/api/admin/reload-reference", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin"])(req, res, async () => {
+    try {
+      const data = await services.reloadReferenceData()
+      const lotacao = services.recomputeAllocations()
+      return res.json({ message: "Base de referencia recarregada", ...data, lotacao, meta: services.getMetaCounts() })
+    } catch (error) {
+      return res.status(400).json({ detail: error.message || "Falha ao recarregar base" })
+    }
   })
 })
 
-app.post("/api/admin/reload-reference", authMiddleware(["admin"]), async (_req, res) => {
-  try {
-    const data = await reloadReferenceData()
-    const lotacao = recomputeAllocations()
-    return res.json({ message: "Base de referencia recarregada", ...data, lotacao, meta: getMetaCounts() })
-  } catch (error) {
-    return res.status(400).json({ detail: error.message || "Falha ao recarregar base" })
-  }
-})
-
 app.get("/api/form/lookup", (req, res) => {
-  const cpf = normalizeCpf(req.query.cpf)
-  const matricula = normalizeMatricula(req.query.matricula)
+  if (!services.ready) return serviceUnavailable(res)
+  const cpf = services.normalizeCpf(req.query.cpf)
+  const matricula = services.normalizeMatricula(req.query.matricula)
 
   if (!cpf || !matricula) {
     return res.status(400).json({ detail: "Informe cpf e matricula" })
   }
 
-  const servidor = lookupServidor(cpf, matricula)
+  const servidor = services.lookupServidor(cpf, matricula)
   if (!servidor) {
     return res.status(404).json({ detail: "Servidor nao encontrado nas tabelas de referencia" })
   }
 
-  const unidades = unitsByCargo(servidor.cargo)
+  const unidades = services.unitsByCargo(servidor.cargo)
 
   return res.json({
     servidor,
@@ -107,20 +170,21 @@ app.get("/api/form/lookup", (req, res) => {
 
 app.post("/api/form/submit", (req, res) => {
   try {
+    if (!services.ready) return serviceUnavailable(res)
     const payload = req.body || {}
-    const cpf = normalizeCpf(payload.cpf)
-    const matricula = normalizeMatricula(payload.matricula)
+    const cpf = services.normalizeCpf(payload.cpf)
+    const matricula = services.normalizeMatricula(payload.matricula)
 
     if (!cpf || !matricula) {
       return res.status(400).json({ detail: "CPF e matricula sao obrigatorios" })
     }
 
-    const servidor = lookupServidor(cpf, matricula)
+    const servidor = services.lookupServidor(cpf, matricula)
     if (!servidor) {
       return res.status(400).json({ detail: "Servidor nao encontrado nas tabelas de referencia" })
     }
 
-    const unidades = unitsByCargo(servidor.cargo)
+    const unidades = services.unitsByCargo(servidor.cargo)
     const allowSet = new Set(unidades.map((u) => u.unidade))
 
     const unidade1 = String(payload.unidade_1 ?? "").trim()
@@ -143,7 +207,7 @@ app.post("/api/form/submit", (req, res) => {
       }
     }
 
-    const created = createSolicitacao({
+    const created = services.createSolicitacao({
       cpf,
       matricula,
       nome: servidor.nome,
@@ -154,8 +218,8 @@ app.post("/api/form/submit", (req, res) => {
       unidade_2: unidade2,
       unidade_3: unidade3,
     })
-    recomputeAllocations()
-    const atualizada = getSolicitacaoById(created.id)
+    services.recomputeAllocations()
+    const atualizada = services.getSolicitacaoById(created.id)
 
     return res.status(201).json({ message: "Solicitacao enviada", id: created.id, solicitacao: atualizada })
   } catch (error) {
@@ -163,34 +227,43 @@ app.post("/api/form/submit", (req, res) => {
   }
 })
 
-app.get("/api/requests", authMiddleware(["admin", "gestao"]), (req, res) => {
-  const rows = listSolicitacoes({
-    q: req.query.q,
-    cargo: req.query.cargo,
-    unidade: req.query.unidade,
-    status: req.query.status,
-    limit: req.query.limit,
+app.get("/api/requests", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin", "gestao"])(req, res, () => {
+    const rows = services.listSolicitacoes({
+      q: req.query.q,
+      cargo: req.query.cargo,
+      unidade: req.query.unidade,
+      status: req.query.status,
+      limit: req.query.limit,
+    })
+    return res.json({ rows })
   })
-  return res.json({ rows })
 })
 
-app.get("/api/reports/requests.csv", authMiddleware(["admin", "gestao"]), (req, res) => {
-  const rows = listSolicitacoes({
-    q: req.query.q,
-    cargo: req.query.cargo,
-    unidade: req.query.unidade,
-    status: req.query.status,
-    limit: req.query.limit,
+app.get("/api/reports/requests.csv", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin", "gestao"])(req, res, () => {
+    const rows = services.listSolicitacoes({
+      q: req.query.q,
+      cargo: req.query.cargo,
+      unidade: req.query.unidade,
+      status: req.query.status,
+      limit: req.query.limit,
+    })
+    const csv = services.toCsv(rows)
+    res.setHeader("Content-Type", "text/csv; charset=utf-8")
+    res.setHeader("Content-Disposition", "attachment; filename=solicitacoes.csv")
+    return res.send(csv)
   })
-  const csv = toCsv(rows)
-  res.setHeader("Content-Type", "text/csv; charset=utf-8")
-  res.setHeader("Content-Disposition", "attachment; filename=solicitacoes.csv")
-  return res.send(csv)
 })
 
-app.delete("/api/requests", authMiddleware(["admin"]), (_req, res) => {
-  const result = clearSolicitacoes()
-  return res.json({ message: "Entradas limpas", total_removido: result.changes })
+app.delete("/api/requests", (req, res) => {
+  if (!services.ready) return serviceUnavailable(res)
+  return services.authMiddleware(["admin"])(req, res, () => {
+    const result = services.clearSolicitacoes()
+    return res.json({ message: "Entradas limpas", total_removido: result.changes })
+  })
 })
 
 function resolveFrontendDist() {
@@ -248,12 +321,4 @@ for (const p of candidatePorts) {
   startListener(p)
 }
 
-reloadReferenceData().catch((error) => {
-  console.error(`Falha ao carregar base de referencia: ${error.message}`)
-})
-
-try {
-  recomputeAllocations()
-} catch (error) {
-  console.error(`Falha ao recalcular lotacoes na inicializacao: ${error.message}`)
-}
+initServices()
