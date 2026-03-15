@@ -110,7 +110,8 @@ Observacao: para deploy unificado, deixe `VITE_API_BASE` vazio no frontend (ou n
 Se a plataforma nao permitir definir build command (apenas gerenciador de pacotes), o projeto ja esta preparado:
 
 - `backend/package.json` executa `postinstall`
-- o `postinstall` roda `npm --prefix ../frontend ci && npm --prefix ../frontend run build`
+- o `postinstall` e o `prestart` executam `backend/scripts/ensure-frontend-build.mjs`
+- esse script garante que `frontend/dist/index.html` exista antes de subir a API
 
 Ou seja, no deploy com diretorio raiz em `backend`, o frontend sera buildado automaticamente durante o `npm install`.
 

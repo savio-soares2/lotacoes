@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "prestart": "node ./scripts/ensure-frontend-build.mjs",
     "start": "node src/server.js",
     "test": "vitest run",
-    "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build",
-    "postinstall": "npm run build:frontend"
+    "build:frontend": "npm --prefix ../frontend ci --include=dev && npm --prefix ../frontend run build",
+    "postinstall": "node ./scripts/ensure-frontend-build.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
