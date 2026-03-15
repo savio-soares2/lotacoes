@@ -1,0 +1,121 @@
+import fs from "fs"
+import path from "path"
+import Database from "better-sqlite3"
+import bcrypt from "bcryptjs"
+
+const dbDir = path.resolve(process.cwd(), "data")
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true })
+}
+
+const dbPath = path.join(dbDir, "app.db")
+export const db = new Database(dbPath)
+
+db.pragma("journal_mode = WAL")
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'gestao')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS servidores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    matricula TEXT NOT NULL,
+    cpf TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    admissao TEXT,
+    nascimento TEXT,
+    cargo TEXT NOT NULL,
+    cargo_norm TEXT NOT NULL,
+    lotacao TEXT,
+    vinculo TEXT,
+    situacao TEXT,
+    source_file TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(cpf, matricula)
+  );
+
+  CREATE TABLE IF NOT EXISTS vagas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    unidade TEXT NOT NULL,
+    cargo TEXT NOT NULL,
+    cargo_norm TEXT NOT NULL,
+    vagas INTEGER NOT NULL,
+    source_file TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS solicitacoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cpf TEXT NOT NULL,
+    matricula TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    admissao TEXT,
+    nascimento TEXT,
+    cargo TEXT NOT NULL,
+    cargo_norm TEXT NOT NULL,
+    unidade_1 TEXT NOT NULL,
+    unidade_2 TEXT,
+    unidade_3 TEXT,
+    status TEXT NOT NULL DEFAULT 'enviada',
+    resultado_status TEXT,
+    unidade_lotada_final TEXT,
+    opcao_contemplada_final TEXT,
+    criterio_resultado_final TEXT,
+    detalhamento_resultado TEXT,
+    atualizado_em TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_servidores_cpf_matricula ON servidores(cpf, matricula);
+  CREATE INDEX IF NOT EXISTS idx_vagas_cargo_norm ON vagas(cargo_norm);
+  CREATE INDEX IF NOT EXISTS idx_solicitacoes_cargo_norm ON solicitacoes(cargo_norm);
+`)
+
+function ensureColumn(tableName, columnName, columnType) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all()
+  const exists = columns.some((c) => c.name === columnName)
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`)
+  }
+}
+
+ensureColumn("solicitacoes", "resultado_status", "TEXT")
+ensureColumn("solicitacoes", "unidade_lotada_final", "TEXT")
+ensureColumn("solicitacoes", "opcao_contemplada_final", "TEXT")
+ensureColumn("solicitacoes", "criterio_resultado_final", "TEXT")
+ensureColumn("solicitacoes", "detalhamento_resultado", "TEXT")
+ensureColumn("solicitacoes", "atualizado_em", "TEXT")
+
+function seedUsers() {
+  const count = db.prepare("SELECT COUNT(1) AS total FROM users").get().total
+  if (count > 0) return
+
+  const insert = db.prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)")
+  insert.run("admin", bcrypt.hashSync("admin123", 10), "admin")
+  insert.run("gestao", bcrypt.hashSync("gestao123", 10), "gestao")
+}
+
+seedUsers()
+
+export function normalizeText(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, " ")
+}
+
+export function normalizeCpf(value) {
+  return String(value ?? "").replace(/\D/g, "")
+}
+
+export function normalizeMatricula(value) {
+  return String(value ?? "").replace(/\D/g, "")
+}
