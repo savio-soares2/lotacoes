@@ -26,6 +26,10 @@ const app = express()
 const parsedPort = Number(process.env.PORT)
 const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8000
 const host = process.env.HOST || "0.0.0.0"
+const fallbackPorts = String(process.env.FALLBACK_PORTS || "3000")
+  .split(",")
+  .map((p) => Number(p.trim()))
+  .filter((p) => Number.isFinite(p) && p > 0 && p !== port)
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url))
 const BACKEND_DIR = path.resolve(SRC_DIR, "..")
 const corsOrigins = String(process.env.CORS_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173")
@@ -224,14 +228,30 @@ if (hasFrontendBuild) {
   })
 }
 
-app.listen(port, host, () => {
-  console.log(`API em execucao em http://${host}:${port}`)
-  if (hasFrontendBuild) {
-    console.log(`Frontend estatico servido de: ${frontendDist}`)
-  } else {
-    console.log("Frontend estatico nao encontrado. Disponivel apenas /api/*")
-  }
-})
+function startListener(listenPort, isPrimary) {
+  const server = app.listen(listenPort, host, () => {
+    console.log(`API em execucao em http://${host}:${listenPort}${isPrimary ? " (principal)" : " (fallback)"}`)
+    if (hasFrontendBuild) {
+      console.log(`Frontend estatico servido de: ${frontendDist}`)
+    } else {
+      console.log("Frontend estatico nao encontrado. Disponivel apenas /api/*")
+    }
+  })
+
+  server.on("error", (error) => {
+    if (isPrimary) {
+      console.error(`Falha ao iniciar listener principal na porta ${listenPort}: ${error.message}`)
+      process.exit(1)
+      return
+    }
+    console.warn(`Listener fallback nao iniciado na porta ${listenPort}: ${error.message}`)
+  })
+}
+
+startListener(port, true)
+for (const fp of fallbackPorts) {
+  startListener(fp, false)
+}
 
 reloadReferenceData().catch((error) => {
   console.error(`Falha ao carregar base de referencia: ${error.message}`)

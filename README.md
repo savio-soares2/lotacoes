@@ -59,7 +59,7 @@ copy .env.example .env
 
 Variaveis principais:
 
-- Backend: `PORT`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_DIST`, `REF_SERVERS_FILE`, `REF_VAGAS_FILE`, `REF_VAGAS_SHEET`, `REF_VAGAS_HEADER_ROW`, `REF_VAGAS_DATA_START_ROW`, `REF_VAGAS_DATA_END_ROW`
+- Backend: `PORT`, `FALLBACK_PORTS`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_DIST`, `REF_SERVERS_FILE`, `REF_VAGAS_FILE`, `REF_VAGAS_SHEET`, `REF_VAGAS_HEADER_ROW`, `REF_VAGAS_DATA_START_ROW`, `REF_VAGAS_DATA_END_ROW`
 - Frontend: `VITE_API_BASE`
 
 ### 1) Backend
@@ -117,6 +117,8 @@ Fallback adicional para provedores com restricoes:
 
 - o backend tambem procura frontend estatico em `backend/public`
 - se `../frontend` nao existir no ambiente de deploy, basta manter os arquivos buildados em `backend/public`
+
+Em provedores com proxy gerenciado, configure `FALLBACK_PORTS=3000` para abrir um listener adicional e aumentar compatibilidade de roteamento.
 
 ## API
 
