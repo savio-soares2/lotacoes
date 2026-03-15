@@ -107,13 +107,11 @@ npm start
 
 Observacao: para deploy unificado, deixe `VITE_API_BASE` vazio no frontend (ou nao defina), assim o app usa a mesma origem (`/api`).
 
-Se a plataforma nao permitir definir build command (apenas gerenciador de pacotes), o projeto ja esta preparado:
+Se a plataforma nao permitir definir build command (apenas gerenciador de pacotes), use o frontend estatico versionado em `backend/public`.
 
-- `backend/package.json` executa `postinstall`
-- o `postinstall` e o `prestart` executam `backend/scripts/ensure-frontend-build.mjs`
-- esse script garante que `frontend/dist/index.html` exista antes de subir a API
-
-Ou seja, no deploy com diretorio raiz em `backend`, o frontend sera buildado automaticamente durante o `npm install`.
+- o backend prioriza `backend/public` para servir o site
+- no deploy com diretorio raiz em `backend`, nao e necessario buildar o frontend no servidor
+- isso evita falhas de compatibilidade quando o provedor usa Node 18
 
 Fallback adicional para provedores com restricoes:
 
