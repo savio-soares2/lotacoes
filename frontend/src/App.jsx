@@ -59,7 +59,7 @@ async function apiFetchJson(url, options = {}) {
     try {
       body = JSON.parse(text)
     } catch {
-      throw new Error('Resposta inválida da API. Verifique se o backend está rodando na porta 8000.')
+      throw new Error('Resposta invalida da API. Verifique VITE_API_BASE no frontend e CORS_ORIGINS no backend.')
     }
   }
 

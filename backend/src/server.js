@@ -272,17 +272,27 @@ app.delete("/api/requests", (req, res) => {
 
 function resolveFrontendDist() {
   const configuredRaw = String(process.env.FRONTEND_DIST || "").trim()
-  if (!configuredRaw) return null
+  const candidates = []
 
-  const configured = path.isAbsolute(configuredRaw)
-    ? configuredRaw
-    : path.resolve(BACKEND_DIR, configuredRaw)
-
-  if (fs.existsSync(path.join(configured, "index.html"))) {
-    return configured
+  if (configuredRaw) {
+    const configured = path.isAbsolute(configuredRaw)
+      ? configuredRaw
+      : path.resolve(BACKEND_DIR, configuredRaw)
+    candidates.push(configured)
   }
 
-  console.warn(`FRONTEND_DIST definido, mas index.html nao encontrado em: ${configured}`)
+  candidates.push(path.resolve(BACKEND_DIR, "public"))
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "index.html"))) {
+      return candidate
+    }
+  }
+
+  if (configuredRaw) {
+    console.warn(`FRONTEND_DIST definido, mas index.html nao encontrado em: ${candidates[0]}`)
+  }
+
   return null
 }
 

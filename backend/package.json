@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "build": "node -e \"console.log('build ok: backend/public already bundled')\"",
+    "build": "node ./scripts/sync-public-from-frontend.mjs",
     "start": "node src/server.js",
     "start:probe": "node src/probe.js",
     "test": "vitest run",

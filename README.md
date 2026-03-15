@@ -82,15 +82,14 @@ cd backend
 npm start
 ```
 
-### Deploy Railway (separado em 2 servicos)
+### Deploy Railway (1 servico recomendado)
 
 Arquivos de ambiente:
 
 - backend local: `backend/.env.example`
-- backend railway api: `backend/.env.railway.example`
-- frontend railway: `frontend/.env.railway.example`
+- backend railway: `backend/.env.railway.example`
 
-#### Servico 1: API (backend)
+#### Servico unico: Backend + Frontend estatico
 
 Recomendado no painel do servico backend:
 
@@ -105,8 +104,8 @@ Variaveis de ambiente (API):
 - `HOST=0.0.0.0`
 - `FALLBACK_PORTS=3000,8080,5000`
 - `JWT_SECRET=<segredo forte>`
-- `CORS_ORIGINS=<url do frontend railway e/ou dominio final>`
-- `FRONTEND_DIST=`
+- `CORS_ORIGINS=https://saude.palmas.online,https://www.saude.palmas.online`
+- `FRONTEND_DIST=public`
 - `DATA_DIR=/tmp/lotacoes-data`
 - `REF_SERVERS_FILE=data/UPAS POR CARGO - 13-03-2026.xlsx`
 - `REF_VAGAS_FILE=data/Quadro de Vagas Edital.xlsx`
@@ -120,18 +119,19 @@ Nao fixe `PORT` em ambiente gerenciado.
 O servidor abre listeners em multiplas portas candidatas para compatibilidade com ambientes gerenciados.
 O banco SQLite usa `DATA_DIR` quando definido; em host gerenciado, prefira `/tmp/lotacoes-data`.
 
-#### Servico 2: Frontend (Vite)
+Build/start sugeridos no servico:
 
-Recomendado no painel do frontend:
+- build command: `npm run build`
+- start command: `npm start`
 
-- framework: Vite (ou static)
-- branch: `main`
-- diretorio raiz: `frontend`
-- node: 18.x
+O `npm run build` do backend gera o build do Vite e sincroniza para `backend/public` automaticamente.
 
-Variavel de ambiente (frontend):
+### Opcional: Railway com 2 servicos (split)
 
-- `VITE_API_BASE=<url publica do backend railway>`
+Se preferir separar, mantenha backend em `backend` e frontend em `frontend`, com:
+
+- frontend `VITE_API_BASE=<url publica do backend>`
+- backend `FRONTEND_DIST=`
 
 ### Diagnostico rapido de 503 (sem logs)
 
