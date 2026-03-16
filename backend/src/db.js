@@ -133,11 +133,18 @@ function seedUsers() {
   const count = db.prepare("SELECT COUNT(1) AS total FROM users").get().total
   if (count > 0) return
 
-  const adminUsername = String(process.env.ADMIN_BOOTSTRAP_USERNAME || "").trim()
-  const adminPassword = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "")
+  const isProduction = process.env.NODE_ENV === "production"
+  let adminUsername = String(process.env.ADMIN_BOOTSTRAP_USERNAME || "").trim()
+  let adminPassword = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "")
 
   if (!adminUsername || !adminPassword) {
-    throw new Error("Defina ADMIN_BOOTSTRAP_USERNAME e ADMIN_BOOTSTRAP_PASSWORD para inicializar o primeiro usuario admin")
+    if (isProduction) {
+      throw new Error("Defina ADMIN_BOOTSTRAP_USERNAME e ADMIN_BOOTSTRAP_PASSWORD para inicializar o primeiro usuario admin")
+    }
+
+    adminUsername = "admin"
+    adminPassword = "admin123"
+    console.warn("ADMIN_BOOTSTRAP_* ausente: usando usuario padrao apenas para ambiente nao produtivo")
   }
 
   const insert = db.prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)")

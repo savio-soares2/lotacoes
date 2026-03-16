@@ -9,10 +9,24 @@ import helmet from "helmet"
 import rateLimit from "express-rate-limit"
 
 const app = express()
-const trustProxy = Number(process.env.TRUST_PROXY || 0)
-if (Number.isFinite(trustProxy) && trustProxy > 0) {
-  app.set("trust proxy", trustProxy)
+const isProduction = process.env.NODE_ENV === "production"
+
+function resolveTrustProxySetting() {
+  const raw = String(process.env.TRUST_PROXY || "").trim()
+  if (!raw) {
+    return isProduction ? 1 : false
+  }
+
+  if (raw === "1" || raw.toLowerCase() === "true") return 1
+  if (raw === "0" || raw.toLowerCase() === "false") return false
+
+  const numeric = Number(raw)
+  if (Number.isFinite(numeric)) return numeric
+
+  return raw
 }
+
+app.set("trust proxy", resolveTrustProxySetting())
 const rawPort = process.env.PORT
 const primaryPort = (() => {
   if (rawPort === undefined || rawPort === "") return 8000
@@ -34,7 +48,6 @@ const corsOrigins = String(process.env.CORS_ORIGINS || "http://localhost:5173,ht
   .filter(Boolean)
 
 const ALLOWED_UPLOAD_MIME = new Set(["application/pdf", "image/png", "image/jpeg"])
-const isProduction = process.env.NODE_ENV === "production"
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
