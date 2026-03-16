@@ -123,14 +123,31 @@ ensureColumn("solicitacoes", "opcao_contemplada_final", "TEXT")
 ensureColumn("solicitacoes", "criterio_resultado_final", "TEXT")
 ensureColumn("solicitacoes", "detalhamento_resultado", "TEXT")
 ensureColumn("solicitacoes", "atualizado_em", "TEXT")
+ensureColumn("solicitacoes", "endereco", "TEXT")
+ensureColumn("solicitacoes", "comprovante_endereco_nome", "TEXT")
+ensureColumn("solicitacoes", "comprovante_endereco_caminho", "TEXT")
+ensureColumn("solicitacoes", "identidade_nome", "TEXT")
+ensureColumn("solicitacoes", "identidade_caminho", "TEXT")
 
 function seedUsers() {
   const count = db.prepare("SELECT COUNT(1) AS total FROM users").get().total
   if (count > 0) return
 
+  const adminUsername = String(process.env.ADMIN_BOOTSTRAP_USERNAME || "").trim()
+  const adminPassword = String(process.env.ADMIN_BOOTSTRAP_PASSWORD || "")
+
+  if (!adminUsername || !adminPassword) {
+    throw new Error("Defina ADMIN_BOOTSTRAP_USERNAME e ADMIN_BOOTSTRAP_PASSWORD para inicializar o primeiro usuario admin")
+  }
+
   const insert = db.prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)")
-  insert.run("admin", bcrypt.hashSync("admin123", 10), "admin")
-  insert.run("gestao", bcrypt.hashSync("gestao123", 10), "gestao")
+  insert.run(adminUsername, bcrypt.hashSync(adminPassword, 12), "admin")
+
+  const gestaoUsername = String(process.env.GESTAO_BOOTSTRAP_USERNAME || "").trim()
+  const gestaoPassword = String(process.env.GESTAO_BOOTSTRAP_PASSWORD || "")
+  if (gestaoUsername && gestaoPassword) {
+    insert.run(gestaoUsername, bcrypt.hashSync(gestaoPassword, 12), "gestao")
+  }
 }
 
 seedUsers()

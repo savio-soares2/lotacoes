@@ -23,6 +23,7 @@ backend/data/*.db-wal
 backend/data/*.db-shm
 backend/data/*.sqlite
 backend/data/*.sqlite3
+backend/data/uploads/
 backend/.env
 frontend/.env
 

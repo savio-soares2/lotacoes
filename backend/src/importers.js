@@ -39,7 +39,7 @@ const DEFAULT_VAGAS_FILE = resolveReferenceFile(
 const DEFAULT_VAGAS_SHEET = process.env.REF_VAGAS_SHEET || "Página1"
 const VAGAS_HEADER_ROW = Number(process.env.REF_VAGAS_HEADER_ROW || 1)
 const VAGAS_DATA_START_ROW = Number(process.env.REF_VAGAS_DATA_START_ROW || 2)
-const VAGAS_DATA_END_ROW = Number(process.env.REF_VAGAS_DATA_END_ROW || 42)
+const VAGAS_DATA_END_ROW = Number(process.env.REF_VAGAS_DATA_END_ROW || 44)
 
 function parseDateCell(value) {
   if (!value) return null
@@ -240,9 +240,19 @@ export function listQuadroVagasPublic() {
 export function createSolicitacao(payload) {
   const insert = db.prepare(`
     INSERT INTO solicitacoes
-      (cpf, matricula, nome, admissao, nascimento, cargo, cargo_norm, unidade_1, unidade_2, unidade_3)
+      (
+        cpf, matricula, nome, admissao, nascimento, cargo, cargo_norm,
+        unidade_1, unidade_2, unidade_3,
+        endereco, comprovante_endereco_nome, comprovante_endereco_caminho,
+        identidade_nome, identidade_caminho
+      )
     VALUES
-      (@cpf, @matricula, @nome, @admissao, @nascimento, @cargo, @cargo_norm, @unidade_1, @unidade_2, @unidade_3)
+      (
+        @cpf, @matricula, @nome, @admissao, @nascimento, @cargo, @cargo_norm,
+        @unidade_1, @unidade_2, @unidade_3,
+        @endereco, @comprovante_endereco_nome, @comprovante_endereco_caminho,
+        @identidade_nome, @identidade_caminho
+      )
   `)
 
   const result = insert.run({
@@ -256,9 +266,28 @@ export function createSolicitacao(payload) {
     unidade_1: String(payload.unidade_1 ?? "").trim(),
     unidade_2: String(payload.unidade_2 ?? "").trim() || null,
     unidade_3: String(payload.unidade_3 ?? "").trim() || null,
+    endereco: String(payload.endereco ?? "").trim(),
+    comprovante_endereco_nome: String(payload.comprovante_endereco_nome ?? "").trim() || null,
+    comprovante_endereco_caminho: String(payload.comprovante_endereco_caminho ?? "").trim() || null,
+    identidade_nome: String(payload.identidade_nome ?? "").trim() || null,
+    identidade_caminho: String(payload.identidade_caminho ?? "").trim() || null,
   })
 
   return { id: result.lastInsertRowid }
+}
+
+export function hasSolicitacaoByMatricula(matricula) {
+  const normalized = normalizeMatricula(matricula)
+  if (!normalized) return false
+  const row = db
+    .prepare(
+      `SELECT 1
+       FROM solicitacoes
+       WHERE matricula = ?
+       LIMIT 1`
+    )
+    .get(normalized)
+  return Boolean(row)
 }
 
 function parseDateOrFallback(value, fallbackDate) {
@@ -328,7 +357,7 @@ export function recomputeAllocations() {
           unidade_lotada_final: row.unidade,
           opcao_contemplada_final: String(row.opcao_contemplada),
           criterio_resultado_final: row.criterio_aplicado,
-          detalhamento_resultado: `Lotado automaticamente na unidade ${row.unidade} pela ${row.opcao_contemplada}a opcao.`,
+          detalhamento_resultado: `Lotado automaticamente na unidade ${row.unidade} pela ${row.opcao_contemplada}ª opção.`,
           status: "processada",
         })
       } else if (ties.has(id)) {
@@ -338,16 +367,16 @@ export function recomputeAllocations() {
           unidade_lotada_final: row.unidade,
           opcao_contemplada_final: String(row.opcao_em_analise),
           criterio_resultado_final: row.criterio_aplicado,
-          detalhamento_resultado: "Empate nos criterios automaticos. Necessario desempate manual.",
+          detalhamento_resultado: "Empate nos critérios automáticos. Necessário desempate manual.",
           status: "processada",
         })
       } else if (unallocated.has(id)) {
         statusById.set(id, {
           resultado_status: "nao_lotado",
-          unidade_lotada_final: "Nao lotado",
+          unidade_lotada_final: "Não lotado",
           opcao_contemplada_final: "-",
-          criterio_resultado_final: "Sem contemplacao por falta de vagas",
-          detalhamento_resultado: "Sem vaga nas 3 opcoes apos aplicacao dos criterios.",
+          criterio_resultado_final: "Sem contemplação por falta de vagas",
+          detalhamento_resultado: "Sem vaga nas 3 opções após aplicação dos critérios.",
           status: "processada",
         })
       } else {
@@ -400,6 +429,7 @@ export function getSolicitacaoById(id) {
   return db
     .prepare(
       `SELECT id, cpf, matricula, nome, admissao, nascimento, cargo, unidade_1, unidade_2, unidade_3,
+              endereco, comprovante_endereco_nome, identidade_nome,
               status, resultado_status, unidade_lotada_final, opcao_contemplada_final,
               criterio_resultado_final, detalhamento_resultado, atualizado_em, created_at
        FROM solicitacoes
@@ -432,22 +462,66 @@ export function listSolicitacoes(filters = {}) {
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""
   const limit = Number.isInteger(Number(filters.limit)) ? Math.min(Number(filters.limit), 2000) : 500
+  params.push(limit)
 
   return db
     .prepare(
       `SELECT id, cpf, matricula, nome, admissao, nascimento, cargo, unidade_1, unidade_2, unidade_3,
+              endereco, comprovante_endereco_nome, identidade_nome,
               status, resultado_status, unidade_lotada_final, opcao_contemplada_final,
               criterio_resultado_final, detalhamento_resultado, atualizado_em, created_at
        FROM solicitacoes
        ${where}
        ORDER BY datetime(created_at) DESC
-       LIMIT ${limit}`
+       LIMIT ?`
     )
     .all(...params)
 }
 
 export function clearSolicitacoes() {
   return db.prepare("DELETE FROM solicitacoes").run()
+}
+
+export function deleteSolicitacoesByIds(ids = []) {
+  if (!Array.isArray(ids) || ids.length === 0) return { changes: 0 }
+
+  const numericIds = ids
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0)
+
+  if (!numericIds.length) return { changes: 0 }
+
+  const placeholders = numericIds.map(() => "?").join(",")
+  return db.prepare(`DELETE FROM solicitacoes WHERE id IN (${placeholders})`).run(...numericIds)
+}
+
+export function listAllSolicitacaoAttachments() {
+  return db
+    .prepare(
+      `SELECT comprovante_endereco_caminho, identidade_caminho
+       FROM solicitacoes
+       WHERE comprovante_endereco_caminho IS NOT NULL OR identidade_caminho IS NOT NULL`
+    )
+    .all()
+}
+
+export function listSolicitacaoAttachmentsByIds(ids = []) {
+  if (!Array.isArray(ids) || ids.length === 0) return []
+
+  const numericIds = ids
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0)
+
+  if (!numericIds.length) return []
+
+  const placeholders = numericIds.map(() => "?").join(",")
+  return db
+    .prepare(
+      `SELECT comprovante_endereco_caminho, identidade_caminho
+       FROM solicitacoes
+       WHERE id IN (${placeholders})`
+    )
+    .all(...numericIds)
 }
 
 export function getMetaCounts() {

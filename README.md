@@ -10,8 +10,7 @@ Projeto com frontend em React e backend em Node.js (Express) para formulario de 
 
 Usuarios iniciais:
 
-- `admin` / `admin123`
-- `gestao` / `gestao123`
+- Definidos por variaveis de ambiente no primeiro bootstrap do banco (`ADMIN_BOOTSTRAP_*` e opcionalmente `GESTAO_BOOTSTRAP_*`).
 
 ## Regras aplicadas
 
@@ -25,7 +24,7 @@ Usuarios iniciais:
 - O sistema preenche automaticamente os demais dados do servidor a partir das tabelas de referencia locais.
 - As unidades e vagas sao cruzadas por cargo com o quadro de vagas.
 - O formulario aceita ate 3 opcoes de unidade sem repeticao.
-- Somente perfis autenticados conseguem visualizar entradas, aplicar filtros e gerar relatorios CSV.
+- Somente perfis autenticados conseguem visualizar entradas, aplicar filtros e gerar relatorios CSV e Word (.docx).
 
 ## Estrutura
 
@@ -107,12 +106,18 @@ Variaveis de ambiente (API):
 - `CORS_ORIGINS=https://saude.palmas.online,https://www.saude.palmas.online`
 - `FRONTEND_DIST=public`
 - `DATA_DIR=/tmp/lotacoes-data`
+- `UPLOAD_DIR=/tmp/lotacoes-data/uploads`
+- `TRUST_PROXY=1`
+- `ADMIN_BOOTSTRAP_USERNAME=<usuario_admin_inicial>`
+- `ADMIN_BOOTSTRAP_PASSWORD=<senha_admin_inicial>`
+- `GESTAO_BOOTSTRAP_USERNAME=<usuario_gestao_inicial_opcional>`
+- `GESTAO_BOOTSTRAP_PASSWORD=<senha_gestao_inicial_opcional>`
 - `REF_SERVERS_FILE=data/UPAS POR CARGO - 13-03-2026.xlsx`
 - `REF_VAGAS_FILE=data/Quadro de Vagas Edital.xlsx`
 - `REF_VAGAS_SHEET=Página1`
 - `REF_VAGAS_HEADER_ROW=1`
 - `REF_VAGAS_DATA_START_ROW=2`
-- `REF_VAGAS_DATA_END_ROW=42`
+- `REF_VAGAS_DATA_END_ROW=44`
 
 Nao fixe `PORT` em ambiente gerenciado.
 
@@ -151,10 +156,11 @@ Se com `probe.js` continuar 503, o problema e configuracao da plataforma/domino 
 - `POST /api/form/submit` (publico)
 - `GET /api/requests` (admin/gestao)
 - `GET /api/reports/requests.csv` (admin/gestao)
+- `GET /api/reports/requests.docx` (admin/gestao)
 - `DELETE /api/requests` (admin)
 
 ## Saidas
 
 - Entradas de solicitacao com filtros por cargo/unidade/busca
-- Exportacao CSV das entradas
+- Exportacao CSV e Word (.docx) das entradas
 - Metricas de base importada (servidores, vagas, solicitacoes)

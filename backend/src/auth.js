@@ -5,6 +5,21 @@ import { db } from "./db.js"
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production"
 const JWT_EXPIRES_IN = "12h"
+const isProduction = process.env.NODE_ENV === "production"
+
+function isWeakJwtSecret(secret) {
+  const normalized = String(secret || "").trim()
+  return (
+    normalized.length < 32 ||
+    normalized === "dev-secret-change-in-production" ||
+    normalized.toLowerCase().includes("change-me") ||
+    normalized.toLowerCase().includes("replace-with")
+  )
+}
+
+if (isProduction && isWeakJwtSecret(JWT_SECRET)) {
+  throw new Error("JWT_SECRET fraco ou ausente em producao")
+}
 
 export function loginUser(username, password) {
   const user = db
@@ -17,6 +32,7 @@ export function loginUser(username, password) {
 
   const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
+    algorithm: "HS256",
   })
 
   return {
@@ -39,7 +55,7 @@ export function authMiddleware(allowedRoles = []) {
     }
 
     try {
-      const payload = jwt.verify(token, JWT_SECRET)
+      const payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] })
       req.user = payload
       if (allowedRoles.length && !allowedRoles.includes(payload.role)) {
         return res.status(403).json({ detail: "Sem permissao" })
@@ -53,7 +69,7 @@ export function authMiddleware(allowedRoles = []) {
 
 export function getUserFromToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET)
+    return jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] })
   } catch {
     return null
   }

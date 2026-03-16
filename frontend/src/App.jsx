@@ -10,6 +10,8 @@ const TOKEN_KEY = 'lotacoes_token'
 const REQUEST_ROUTE = '/solicitar'
 
 function runBrowserDiagnostics() {
+  if (!import.meta.env.DEV) return
+
   const healthUrl = `${API_BASE}/api/health`
 
   const info = {
@@ -32,9 +34,8 @@ function runBrowserDiagnostics() {
     signal: controller.signal,
   })
     .then(async (res) => {
-      const text = await res.text()
+      await res.text()
       console.log('Health status:', res.status)
-      console.log('Health body:', text)
       if (!res.ok) {
         console.error('API indisponivel. Verifique deploy, porta e roteamento do backend.')
       }
@@ -120,6 +121,9 @@ export default function App() {
   const [u1, setU1] = useState('')
   const [u2, setU2] = useState('')
   const [u3, setU3] = useState('')
+  const [endereco, setEndereco] = useState('')
+  const [comprovanteEndereco, setComprovanteEndereco] = useState(null)
+  const [identidadeFile, setIdentidadeFile] = useState(null)
   const [step, setStep] = useState('identificacao')
   const [lastSubmission, setLastSubmission] = useState(null)
   const [quadroRows, setQuadroRows] = useState([])
@@ -127,6 +131,7 @@ export default function App() {
   const [quadroLoading, setQuadroLoading] = useState(false)
 
   const [rows, setRows] = useState([])
+  const [selectedRequestIds, setSelectedRequestIds] = useState([])
   const [meta, setMeta] = useState(null)
   const [q, setQ] = useState('')
   const [cargoFilter, setCargoFilter] = useState('')
@@ -196,7 +201,36 @@ export default function App() {
     const body = await apiFetchJson(`${API_BASE}/api/requests?${params.toString()}`, {
       headers: authHeaders(token),
     })
-    setRows(body.rows || [])
+    const nextRows = body.rows || []
+    setRows(nextRows)
+    setSelectedRequestIds((previous) => {
+      const visibleIds = new Set(nextRows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id)))
+      return previous.filter((id) => visibleIds.has(id))
+    })
+  }
+
+  function handleToggleSelectRequest(id) {
+    const numericId = Number(id)
+    if (!Number.isInteger(numericId)) return
+    setSelectedRequestIds((previous) =>
+      previous.includes(numericId)
+        ? previous.filter((item) => item !== numericId)
+        : [...previous, numericId]
+    )
+  }
+
+  function handleToggleSelectAllVisible() {
+    const visibleIds = rows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id))
+    if (!visibleIds.length) return
+
+    setSelectedRequestIds((previous) => {
+      const allSelected = visibleIds.every((id) => previous.includes(id))
+      if (allSelected) {
+        return previous.filter((id) => !visibleIds.includes(id))
+      }
+      const merged = new Set([...previous, ...visibleIds])
+      return [...merged]
+    })
   }
 
   async function handleLogin(event) {
@@ -271,6 +305,16 @@ export default function App() {
       return
     }
 
+    if (!endereco.trim()) {
+      setError('Preencha o endereço.')
+      return
+    }
+
+    if (!comprovanteEndereco || !identidadeFile) {
+      setError('Anexe comprovante de endereço e documento de identidade.')
+      return
+    }
+
     setStep('resumo')
   }
 
@@ -290,6 +334,9 @@ export default function App() {
       `Cargo: ${serverData.cargo || ''}`,
       `Lotação atual: ${serverData.lotacao || ''}`,
       `Vínculo: ${serverData.vinculo || ''}`,
+      `Endereço: ${documentData.endereco || '-'}`,
+      `Comprovante de endereço: ${documentData.comprovanteEnderecoNome || '-'}`,
+      `Documento de identidade: ${documentData.identidadeNome || '-'}`,
       '',
       'Opções escolhidas:',
       `1ª opção: ${documentData.u1 || '-'}`,
@@ -318,16 +365,19 @@ export default function App() {
     setSuccessMessage('')
 
     try {
+      const formData = new FormData()
+      formData.append('cpf', cpf)
+      formData.append('matricula', matricula)
+      formData.append('unidade_1', u1)
+      formData.append('unidade_2', u2)
+      formData.append('unidade_3', u3)
+      formData.append('endereco', endereco)
+      formData.append('comprovante_endereco', comprovanteEndereco)
+      formData.append('identidade', identidadeFile)
+
       const body = await apiFetchJson(`${API_BASE}/api/form/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cpf,
-          matricula,
-          unidade_1: u1,
-          unidade_2: u2,
-          unidade_3: u3,
-        }),
+        body: formData,
       })
 
       setLastSubmission({
@@ -339,6 +389,9 @@ export default function App() {
           u1,
           u2,
           u3,
+          endereco,
+          comprovanteEnderecoNome: comprovanteEndereco?.name || '',
+          identidadeNome: identidadeFile?.name || '',
         },
       })
 
@@ -346,6 +399,9 @@ export default function App() {
       setU1('')
       setU2('')
       setU3('')
+      setEndereco('')
+      setComprovanteEndereco(null)
+      setIdentidadeFile(null)
       setCpf('')
       setMatricula('')
       setServidor(null)
@@ -385,7 +441,36 @@ export default function App() {
         method: 'DELETE',
         headers: authHeaders(token),
       })
-      setSuccessMessage(`Entradas removidas: ${body.total_removido}`)
+      setSelectedRequestIds([])
+      setSuccessMessage(`Entradas removidas: ${body.total_removido}. Anexos removidos: ${body.anexos_removidos || 0}`)
+      await loadProtectedData()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleDeleteSelectedRequests() {
+    setError('')
+    setSuccessMessage('')
+
+    if (!selectedRequestIds.length) {
+      setError('Selecione ao menos uma entrada para excluir.')
+      return
+    }
+
+    if (!window.confirm(`Confirma excluir ${selectedRequestIds.length} entrada(s) selecionada(s)?`)) return
+
+    try {
+      const body = await apiFetchJson(`${API_BASE}/api/requests/selected`, {
+        method: 'DELETE',
+        headers: {
+          ...authHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ids: selectedRequestIds }),
+      })
+      setSelectedRequestIds([])
+      setSuccessMessage(`Entradas removidas: ${body.total_removido}. Anexos removidos: ${body.anexos_removidos || 0}`)
       await loadProtectedData()
     } catch (err) {
       setError(err.message)
@@ -417,6 +502,36 @@ export default function App() {
 
       const blob = await response.blob()
       downloadBlob(blob, 'solicitacoes.csv')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleExportDocx() {
+    setError('')
+    try {
+      const params = new URLSearchParams()
+      if (q.trim()) params.set('q', q.trim())
+      if (cargoFilter.trim()) params.set('cargo', cargoFilter.trim())
+      if (unitFilter.trim()) params.set('unidade', unitFilter.trim())
+      if (statusFilter.trim()) params.set('status', statusFilter.trim())
+
+      const response = await fetch(`${API_BASE}/api/reports/requests.docx?${params.toString()}`, {
+        headers: authHeaders(token),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        let body = {}
+        try {
+          body = JSON.parse(text)
+        } catch {
+          throw new Error('Falha ao exportar Word')
+        }
+        throw new Error(body.detail || 'Falha ao exportar Word')
+      }
+
+      const blob = await response.blob()
+      downloadBlob(blob, 'solicitacoes.docx')
     } catch (err) {
       setError(err.message)
     }
@@ -521,9 +636,22 @@ export default function App() {
               <button type="button" className="secondary" onClick={handleExportCsv}>
                 Exportar CSV
               </button>
+              <button type="button" className="secondary" onClick={handleExportDocx}>
+                Exportar Word
+              </button>
               {isAdmin && (
                 <button type="button" className="danger" onClick={handleClearRequests}>
                   Limpar entradas
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={handleDeleteSelectedRequests}
+                  disabled={!selectedRequestIds.length}
+                >
+                  Excluir selecionadas ({selectedRequestIds.length})
                 </button>
               )}
             </div>
@@ -571,7 +699,13 @@ export default function App() {
               <button type="button" onClick={fetchRequests}>Aplicar filtros</button>
             </div>
 
-            <SimpleTable rows={rows} />
+            <SimpleTable
+              rows={rows}
+              selectable={isAdmin}
+              selectedIds={selectedRequestIds}
+              onToggleRow={handleToggleSelectRequest}
+              onToggleAll={handleToggleSelectAllVisible}
+            />
           </section>
         )}
 
@@ -744,6 +878,37 @@ export default function App() {
                 <input value={servidor.vinculo || ''} readOnly />
               </label>
 
+              <label className="full">
+                Endereço
+                <textarea
+                  value={endereco}
+                  onChange={(e) => setEndereco(e.target.value)}
+                  placeholder="Informe seu endereço completo"
+                  rows={3}
+                  required
+                />
+              </label>
+
+              <label>
+                Comprovante de endereço (PDF, PNG, JPG)
+                <input
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  onChange={(e) => setComprovanteEndereco(e.target.files?.[0] || null)}
+                  required
+                />
+              </label>
+
+              <label>
+                Documento de identidade (PDF, PNG, JPG)
+                <input
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  onChange={(e) => setIdentidadeFile(e.target.files?.[0] || null)}
+                  required
+                />
+              </label>
+
               <label>
                 1ª opção de unidade
                 <select value={u1} onChange={(e) => setU1(e.target.value)} required>
@@ -796,6 +961,9 @@ export default function App() {
                 <div><strong>Cargo:</strong> {servidor.cargo}</div>
                 <div><strong>Lotação atual:</strong> {servidor.lotacao || '-'}</div>
                 <div><strong>Vínculo:</strong> {servidor.vinculo || '-'}</div>
+                <div><strong>Endereço:</strong> {endereco || '-'}</div>
+                <div><strong>Comprovante de endereço:</strong> {comprovanteEndereco?.name || '-'}</div>
+                <div><strong>Documento de identidade:</strong> {identidadeFile?.name || '-'}</div>
                 <div><strong>1ª opção:</strong> {u1 || '-'}</div>
                 <div><strong>2ª opção:</strong> {u2 || '-'}</div>
                 <div><strong>3ª opção:</strong> {u3 || '-'}</div>
@@ -820,6 +988,9 @@ export default function App() {
                 <div><strong>Cargo:</strong> {lastSubmission.serverData?.cargo || '-'}</div>
                 <div><strong>Lotação atual:</strong> {lastSubmission.serverData?.lotacao || '-'}</div>
                 <div><strong>Vínculo:</strong> {lastSubmission.serverData?.vinculo || '-'}</div>
+                <div><strong>Endereço:</strong> {lastSubmission.documentData?.endereco || '-'}</div>
+                <div><strong>Comprovante de endereço:</strong> {lastSubmission.documentData?.comprovanteEnderecoNome || '-'}</div>
+                <div><strong>Documento de identidade:</strong> {lastSubmission.documentData?.identidadeNome || '-'}</div>
                 <div><strong>1ª opção:</strong> {lastSubmission.documentData?.u1 || '-'}</div>
                 <div><strong>2ª opção:</strong> {lastSubmission.documentData?.u2 || '-'}</div>
                 <div><strong>3ª opção:</strong> {lastSubmission.documentData?.u3 || '-'}</div>
@@ -845,17 +1016,28 @@ export default function App() {
   )
 }
 
-function SimpleTable({ rows }) {
+function SimpleTable({ rows, selectable = false, selectedIds = [], onToggleRow, onToggleAll }) {
   if (!rows?.length) {
     return <p className="empty">Sem registros.</p>
   }
 
   const headers = Object.keys(rows[0])
+  const allVisibleSelected = rows.every((row) => selectedIds.includes(Number(row.id)))
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
+            {selectable && (
+              <th>
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar todas as entradas visíveis"
+                  checked={allVisibleSelected}
+                  onChange={onToggleAll}
+                />
+              </th>
+            )}
             {headers.map((h) => (
               <th key={h}>{h}</th>
             ))}
@@ -864,6 +1046,16 @@ function SimpleTable({ rows }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={row.resultado_status === 'desempate_manual' ? 'row-tie' : ''}>
+              {selectable && (
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`Selecionar entrada ${row.id}`}
+                    checked={selectedIds.includes(Number(row.id))}
+                    onChange={() => onToggleRow?.(row.id)}
+                  />
+                </td>
+              )}
               {headers.map((h) => (
                 <td key={`${row.id}-${h}`}>
                   {h === 'resultado_status' ? (
